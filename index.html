@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>EmptyLicensesLicx by caioproiete</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">EmptyLicensesLicx</h1>
+      <h2 class="project-tagline">Easy continuous integration of apps using third-party controls that rely on licenses.licx files</h2>
+      <a href="https://github.com/caioproiete/EmptyLicensesLicx" class="btn">View code on GitHub</a>
+      <a href="https://github.com/caioproiete/EmptyLicensesLicx/releases" class="btn">View releases</a>
+      <a href="https://www.nuget.org/packages/EmptyLicensesLicx/" class="btn">Install via NuGet</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="emptylicenseslicx" class="anchor" href="#emptylicenseslicx" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>EmptyLicensesLicx</h1>
+
+<blockquote>
+<p>An easy approach to building apps that use third-party controls from companies such as Infragistics, DevExpress, and others, without having to install these controls in every single build node, for the sake of compiling the Properties\licenses.licx file.</p>
+</blockquote>
+
+<h2>
+<a id="goals" class="anchor" href="#goals" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Goals</h2>
+
+<ul>
+<li>No compiled code or tools -&gt; 100% transparency</li>
+<li>Trivially added/installed via a <a href="https://www.nuget.org/packages/EmptyLicensesLicx">NuGet package</a>
+</li>
+<li>No format strings or settings to learn</li>
+<li>Single well-structured <a href="https://github.com/caioproiete/EmptyLicensesLicx/blob/master/src/build/EmptyLicensesLicx.targets">.targets</a> file with plain MSBuild</li>
+<li>Easily modified/improved by just adjusting a <a href="https://github.com/caioproiete/EmptyLicensesLicx/blob/master/src/build/EmptyLicensesLicx.targets">single .targets file</a>
+</li>
+</ul>
+
+<h2>
+<a id="overview" class="anchor" href="#overview" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Overview</h2>
+
+<p>When you are developing .NET applications that use third-party controls such as the ones that you can buy from <a href="https://www.devexpress.com">DevExpress</a> or <a href="http://www.infragistics.com">Infragistics</a> for example, a mysterious file called <code>licenses.licx</code> appears inside the <code>Properties</code> folder of your project.</p>
+
+<p>This means that the third-party control uses the (<em>cough</em> crappy <em>cough</em>) <a href="https://msdn.microsoft.com/en-us/library/fe8b1eh9.aspx">licensing model provided by the .NET Framework for licensing components and controls</a>.</p>
+
+<p>This file is a transitional file generated (and modified) by Visual Studio that participates in license checking. In design mode, Visual Studio uses this file to make a note of every licensed control you use in your design. When you then build your application, Visual Studio read this <code>Properties\licenses.licx</code> file and for every control mentioned there, will load the relevant assembly and run the license code in that assembly to see if the assembly is properly licensed (that is, that the product to which it belongs has been properly installed on that machine). If everything checks out, Visual Studio embeds the license key into the executable. If it doesn't, you'll get weird error messages about the control not being licensed (my favorite is "<code>Could not transform licenses file 'licenses.licx' into a binary resource.</code>" to which I usually invoke the colorful language of my ancestors).</p>
+
+<p>The <code>Properties\Licenses.licx</code> is actually a file in your solution (if you cannot see it there, click Show All Files). Visual Studio uses a program called <code>lc.exe</code> to compile the licenses into embedded resources in your application, and when things go wrong with the license compiling I've seen error messages that reference this executable as well.</p>
+
+<p>Here's an example of a line in a <code>licenses.licx</code> file:</p>
+
+<pre><code>Infragistics.Win.Misc.UltraButton, Infragistics2.Win.Misc.v8.1, Version=8.1.20081.1000, Culture=neutral, PublicKeyToken=7dd5c3163f2cd0cb
+Infragistics.Win.Misc.UltraGroupBox, Infragistics2.Win.Misc.v8.1, Version=8.1.20081.1000, Culture=neutral, PublicKeyToken=7dd5c3163f2cd0cb
+DevExpress.XtraCharts.ChartControl, DevExpress.XtraCharts.v15.2.UI, Version=15.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a
+DevExpress.XtraMap.MapControl, DevExpress.XtraMap.v15.2, Version=15.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a
+</code></pre>
+
+<p>Each line contains a reference to a type that is contained in an assembly, in a comma delimited list format. The first value is the name of the class, the second is the assembly that contains the class, and the other values are part of the assembly's identity.</p>
+
+<h2>
+<a id="the-problem" class="anchor" href="#the-problem" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Problem</h2>
+
+<p>There are many issues caused by having to compile this file. For example, when you upgrade a solution to the latest version of the third-party controls you use, you'll get compile errors until the file is updated manually by you, or until you manage to get Visual Studio to regenerate it.</p>
+
+<p>But that's not the biggest issue with <code>licenses.licx</code>. The thing is that Visual Studio has a propensity of touching this file if you open the solution (that's "touching" as in changing the file date to the current date/time). This plays havoc with licensing, especially if you happen to open the solution on a non-licensed machine and you are using source control. Suddenly your build machine will throw off these "cannot transform" messages and you're left wondering what went wrong. Another prevalent issue is when you have a team of developers working on a solution: they're all unconsciously "modifying" this file.</p>
+
+<h2>
+<a id="the-solution" class="anchor" href="#the-solution" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Solution</h2>
+
+<p>The solution for the <code>licenses.licx</code> problem is to make sure you <strong>always have an empty <code>licenses.licx</code> file in your project</strong>. That does not mean to delete the file... That means ignoring whatever garbage Visual Studio will put inside this file, and removing all of its contents, effectively making this file completely empty - but still keep the file there and commit it to source control.</p>
+
+<p>This means every developer in a team needs to know that <strong>and</strong> remember that before checking-in code in source control.</p>
+
+<p>And that is the main reason I've created <a href="http://caioproiete.github.io/EmptyLicensesLicx">EmptyLicensesLicx</a>.</p>
+
+<p>After installing it via <a href="https://www.nuget.org/packages/EmptyLicensesLicx">NuGet</a>, a reference to the <a href="https://github.com/caioproiete/EmptyLicensesLicx/blob/master/src/build/EmptyLicensesLicx.targets">EmptyLicensesLicx.targets file</a> will be added to your project, which will hook into the build pipeline and will make sure that the <code>Properties\licenses.licx</code> file is always empty before the compiler tries to compile it.</p>
+
+<p>This means you no longer will see the "cannot transform" errors in Visual Studio, or when using MSBuild in your continuous integration server. In fact, if this is the only reason you have been installing these third-party controls in your build servers, you no longer have to.</p>
+
+<p>Problem solved. Developers 1 x 0 <em>Crappy</em> .NET framework licensing model.</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/caioproiete/EmptyLicensesLicx">EmptyLicensesLicx</a> is maintained by <a href="https://github.com/caioproiete">caioproiete</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
